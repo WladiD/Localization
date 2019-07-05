@@ -900,6 +900,7 @@ var
 
 var
   Match: TMatch;
+  MatchGroup: TGroup;
 begin
   {**
    * Die schnellste Variante: Überprüfen, ob der String nicht aus nur einer Zahl besteht.
@@ -918,21 +919,23 @@ begin
     Result := Incoming;
     Offset := 1;
     repeat
-      Index := Match.Groups['Number'].Inde; // Hier muss noch der Index herausgesucht werden, denn TGroup.Index verweist auf den Beginn im String
-      if Index >= 0 then
+      MatchGroup := Match.Groups['Number'];
+      if MatchGroup.Success then
       begin
-        Result := ReplaceCapture(Result, GetString(StrToInt(Match.Groups[Index].Value)),
-          Match.Groups[Index].Index, Match.Groups[Index].Length);
+        Result := ReplaceCapture(Result, GetString(StrToInt(MatchGroup.Value)), MatchGroup.Index,
+          MatchGroup.Length);
         Continue;
       end;
 
-      Index := FNumberPCRE.NamedGroup('Escaped');
-      if Index >= 0 then
+      MatchGroup := Match.Groups['Escaped'];
+      if Match.Success then
       begin
-        Result := ReplaceCapture(Result, FNumberPCRE.Groups[Index],
-          FNumberPCRE.GroupOffsets[Index], FNumberPCRE.GroupLengths[Index]);
+        Result := ReplaceCapture(Result, MatchGroup.Value, MatchGroup.Index, MatchGroup.Length);
       end;
-    until not FNumberPCRE.Match(Result, Offset);
+
+      Match := FNumberPCRE.Match(Result, Offset);
+
+    until not Match.Success;
   end;
 end;
 
