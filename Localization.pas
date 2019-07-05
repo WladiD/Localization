@@ -387,16 +387,16 @@ end;
 
 function TLang.GetConst(Name: string): string;
 begin
-  Result:=FConsts.Values[Name];
+  Result := FConsts.Values[Name];
 end;
 
 function TLang.GetLangFileName(LangCode: string; IncludePath: Boolean): string;
 begin
   if IncludePath then
-    Result:=FLangPath
+    Result := FLangPath
   else
-    Result:='';
-  Result:=Result + Format(LangFileNameFormat, [LangCode]);
+    Result := '';
+  Result := Result + Format(LangFileNameFormat, [LangCode]);
 end;
 
 {**
@@ -405,9 +405,9 @@ end;
 function TLang.GetString(Index: Integer): string;
 begin
   if Index >= FMessagesOffset then
-    Result:=FMessages[Index - FMessagesOffset]
+    Result := FMessages[Index - FMessagesOffset]
   else
-    Result:=FStrings[Index];
+    Result := FStrings[Index];
 end;
 
 {**
@@ -419,23 +419,40 @@ begin
    * Extend it as you need
    *}
   case GetUserDefaultLangID and $00FF of
-    LANG_GERMAN: Result:='de';
-    LANG_FRENCH: Result:='fr';
-    LANG_GREEK: Result:='el';
-    LANG_LITHUANIAN: Result:='lt';
-    LANG_NORWEGIAN: Result:='no';
-    LANG_POLISH: Result:='pl';
-    LANG_PORTUGUESE: Result:='pt';
-    LANG_RUSSIAN: Result:='ru';
-    LANG_SPANISH: Result:='es';
-    LANG_SWEDISH: Result:='sv';
-    LANG_TURKISH: Result:='tr';
-    LANG_FINNISH: Result:='fi';
-    LANG_DUTCH: Result:='nl';
-    LANG_ITALIAN: Result:='it';
-    LANG_DANISH: Result:='da';
-    LANG_CHINESE: Result:='zh';
-    else Result:='en';
+    LANG_GERMAN:
+      Result := 'de';
+    LANG_FRENCH:
+      Result := 'fr';
+    LANG_GREEK:
+      Result := 'el';
+    LANG_LITHUANIAN:
+      Result := 'lt';
+    LANG_NORWEGIAN:
+      Result := 'no';
+    LANG_POLISH:
+      Result := 'pl';
+    LANG_PORTUGUESE:
+      Result := 'pt';
+    LANG_RUSSIAN:
+      Result := 'ru';
+    LANG_SPANISH:
+      Result := 'es';
+    LANG_SWEDISH:
+      Result := 'sv';
+    LANG_TURKISH:
+      Result := 'tr';
+    LANG_FINNISH:
+      Result := 'fi';
+    LANG_DUTCH:
+      Result := 'nl';
+    LANG_ITALIAN:
+      Result := 'it';
+    LANG_DANISH:
+      Result := 'da';
+    LANG_CHINESE:
+      Result := 'zh';
+    else
+      Result := 'en';
   end;
 end;
 
@@ -665,7 +682,7 @@ var
     if ScanCode <> 0 then
     begin
       GetKeyNameText(ScanCode, KeyName, Length(KeyName));
-      GetSpecialName:=KeyName;
+      GetSpecialName := KeyName;
     end;
   end;
 begin
@@ -900,16 +917,20 @@ var
 
 var
   Match: TMatch;
-  MatchGroup: TGroup;
+  Group: TGroup;
+
+  function MatchGroup(const GroupName: string): Boolean;
+  begin
+    Group := Match.Groups['Number'];
+    Result := Group.Success;
+  end;
+
 begin
   {**
    * Die schnellste Variante: Überprüfen, ob der String nicht aus nur einer Zahl besteht.
    *}
   if TryStrToInt(Trim(Incoming), Index) then
-  begin
-    Result := GetString(Index);
-    Exit;
-  end;
+    Exit(GetString(Index));
   {**
    * Die langsamere Variante: Der String wird nach allen vorkommenden Zahlen durchsucht.
    *}
@@ -919,22 +940,12 @@ begin
     Result := Incoming;
     Offset := 1;
     repeat
-      MatchGroup := Match.Groups['Number'];
-      if MatchGroup.Success then
-      begin
-        Result := ReplaceCapture(Result, GetString(StrToInt(MatchGroup.Value)), MatchGroup.Index,
-          MatchGroup.Length);
-        Continue;
-      end;
-
-      MatchGroup := Match.Groups['Escaped'];
-      if Match.Success then
-      begin
-        Result := ReplaceCapture(Result, MatchGroup.Value, MatchGroup.Index, MatchGroup.Length);
-      end;
+      if MatchGroup('Number') then
+        Result := ReplaceCapture(Result, GetString(StrToInt(Group.Value)), Group.Index, Group.Length)
+      else if MatchGroup('Escaped') then
+        Result := ReplaceCapture(Result, Group.Value, Group.Index, Group.Length);
 
       Match := FNumberPCRE.Match(Result, Offset);
-
     until not Match.Success;
   end;
 end;
@@ -973,7 +984,7 @@ procedure TNameHashedStringList.Changed;
 begin
   inherited Changed;
 
-  FNameHashValid:=False;
+  FNameHashValid := False;
 end;
 
 function TNameHashedStringList.IndexOfName(const Name: string): Integer;
@@ -997,9 +1008,9 @@ begin
   if Assigned(FNameHash) then
     FNameHash.Clear
   else
-    FNameHash:=TStringHash.Create;
+    FNameHash := TStringHash.Create;
 
-  ToUpperCase:=not CaseSensitive;
+  ToUpperCase := not CaseSensitive;
 
   for cc := 0 to Count - 1 do
   begin
@@ -1016,14 +1027,11 @@ begin
 end;
 
 initialization
-
-Lang := nil;
-
-OverwriteProcedure(@ShortCutToText, @ShortCutToTextController, @OriginShortCutToText);
+  Lang := nil;
+  OverwriteProcedure(@ShortCutToText, @ShortCutToTextController, @OriginShortCutToText);
 
 finalization
-
-FreeAndNil(Lang);
-RestoreProcedure(@ShortCutToText, OriginShortCutToText);
+  FreeAndNil(Lang);
+  RestoreProcedure(@ShortCutToText, OriginShortCutToText);
 
 end.
