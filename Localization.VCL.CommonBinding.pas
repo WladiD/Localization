@@ -24,7 +24,8 @@ begin
   Result := TContainedAction(Target).HelpKeyword;
 end;
 
-function ControlCaptionScheme(Target: TObject; const Scheme: string; const TranslatedValue: string): Boolean;
+function ControlSchemeTranslate(Target: TObject; const Scheme: string;
+  const TranslatedValue: string): Boolean;
 var
   Control: TControlRobin absolute Target;
 begin
@@ -37,10 +38,22 @@ begin
     Result := False;
 end;
 
+function EditSchemeTranslate(Target: TObject; const Scheme: string;
+  const TranslatedValue: string): Boolean;
+var
+  Edit: TCustomEdit absolute Target;
+begin
+  if Scheme = TLang.TextHintScheme then
+  begin
+    Edit.TextHint := TranslatedValue;
+    Result := True;
+  end;
+end;
+
 initialization
   RegisterSchemeSource(TControl, ControlSchemeSource);
   RegisterSchemeSource(TContainedAction, ContainedActionSource);
 
-  RegisterSchemeTranslate(TControl, ControlCaptionScheme);
-
+  RegisterSchemeTranslate(TControl, ControlSchemeTranslate);
+  RegisterSchemeTranslate(TCustomEdit, EditSchemeTranslate);
 end.
