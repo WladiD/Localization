@@ -20,6 +20,7 @@ type
   TMainForm = class(TForm)
     Label1: TLabel;
     LangCombo: TComboBox;
+    Edit1: TEdit;
     procedure FormCreate(Sender: TObject);
     procedure LangComboChange(Sender: TObject);
   private
