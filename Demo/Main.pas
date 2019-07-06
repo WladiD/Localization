@@ -66,10 +66,9 @@ procedure TMainForm.FormCreate(Sender: TObject);
     end;
   end;
 
-
 begin
   InitializeLang(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + 'Locals');
-  Lang.TranslateApplication;
+//  Lang.TranslateApplication;
 
   FAvailableLanguages := Lang.GetAvailableLanguages;
   FillLangCombo;

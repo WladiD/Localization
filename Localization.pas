@@ -21,31 +21,24 @@ uses
   ProcedureHook;
 
 type
-  {**
-   * Einfache Schnittstelle, die Objekten ermöglicht eine Translate-Prozedur zu implementieren,
-   * die dann beim durchlaufen von TLang.Translate aufgerufen wird.
-   *}
+  // Translate interface, which can be implemented on any TComponent descendant and will be
+  // automatically called by TLang.Translate
   ITranslate = interface
     ['{D5DE8131-BC1E-49D3-9AF4-86A35D557FA7}']
-    {**
-     * Sagt aus, ob das jeweilige Objekt bereit für die Übersetzung ist
-     *
-     * Wenn es FALSE liefert, muss die Prozedur OnReadyForTranslate entsprechend implementiert
-     * werden.
-     *}
+    // If the implementor is ready for translate it should return True here.
+    // But if it's not, it must return False and implement the ITranslate.OnReadyForTranslate
+    // method.
     function IsReadyForTranslate: Boolean;
-    {**
-     * Ereignis-Registrierung
-     *
-     * Diese Methode kann auch leer sein, wenn IsReadyForTranslate generell TRUE liefert. Das
-     * Objekt muss sich das übergebene NotifyEvent merken und dieses Aufrufen, wenn es für
-     * die Übersetzung bereit ist.
-     *}
+
+    // Event registering
+    //
+    // As described above, it must only be implemented, if IsReadyForTranslate returns False.
+    // In such case it should simply save the passed NotifyEvent and call it at a later moment
+    // if the implementor is ready for it.
     procedure OnReadyForTranslate(NotifyEvent: TNotifyEvent);
-    {**
-     * Diese Methode ist dafür gedacht, spezifische Elemente zu übersetzen, die z.B. nicht
-     * über den TComponent-Owner-Mechanismus erreichbar sind.
-     *}
+
+    // This is the key method of the interface. Here you can translate any specific elements.
+    // It will be called automatically by TLang.
     procedure Translate;
   end;
 
@@ -312,7 +305,7 @@ begin
   end;
 end;
 
-{** TLang **}
+{ TLang }
 
 constructor TLang.Create(AOwner: TComponent);
 begin
@@ -339,9 +332,7 @@ begin
   Result := Localization.CountFormat(Strings[StringIndex], Count);
 end;
 
-{**
- * Retrieve a array, that contain main information of available languages
- *}
+// Retrieve a array, that contain main information of available languages
 function TLang.GetAvailableLanguages: TLangEntries;
 var
   SR: TSearchRec;
@@ -882,20 +873,19 @@ begin
   DeepScan(ComponentHolder);
 end;
 
-{**
- * Übersetzt einen beliebigen String
- *
- * Alle Zahlen die im String vorkommen, werden durch den entsprechden String übersetzt.
- *
- * Beispiele:
- * '23...' --> 'Einstellungen...'
- * '22 23' --> 'Klicken Sie auf Einstellungen'
- *
- * Soll eine Zahl nicht übersetzt werden, so ist dieser ein Backslash '\' voranzustellen.
- *
- * Beispiel:
- * '22 23 - \1. 24' --> 'Klicken Sie auf Einstellungen - 1. Eintrag'
- *}
+// Translates an incoming string
+//
+// All contained numbers in the incoming string are replaced with the corresponding string
+// from the language file
+//
+// Examples:
+// '23...' --> 'Settings...'
+// '22 "23"' --> 'Click on "Settings"'
+//
+// To let a number as it is in the incoming string, you can escape it with a backslash '\'
+//
+// Example:
+// '\1. 24' --> '1. Title'
 function TLang.Translate(Incoming: string): string;
 var
   Index, Offset: Integer;
@@ -921,14 +911,12 @@ var
   end;
 
 begin
-  {**
-   * Die schnellste Variante: Überprüfen, ob der String nicht aus nur einer Zahl besteht.
-   *}
+  // The fastest way: if the string contains only a number
   if TryStrToInt(Trim(Incoming), Index) then
     Exit(GetString(Index));
-  {**
-   * Die langsamere Variante: Der String wird nach allen vorkommenden Zahlen durchsucht.
-   *}
+
+  // The slower variant: A regex is performed to match any numbers and replace them with the
+  // corresponding string from the language file
   Match := FNumberPCRE.Match(Incoming);
   if Match.Success then
   begin
