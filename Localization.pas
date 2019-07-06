@@ -10,9 +10,8 @@ uses
   System.IniFiles,
   System.RegularExpressions,
   Generics.Collections,
+
   Vcl.Menus,
-  Vcl.Forms,
-  Vcl.ActnList,
   Vcl.Consts,
 
   ProcedureHook;
@@ -47,12 +46,6 @@ type
 
   TLangEntries = array of TLangEntry;
   TNameHashedStringList = class;
-
-  TSchemeSourceFunction = function(Target: TObject): string;
-
-  // The function should return True, if it is responsible for the passed parameters
-  TTranslateSchemeFunction = function(Target: TObject; const Scheme: string;
-    const TranslatedValue: string): Boolean;
 
   TLang = class(TComponent)
   protected
@@ -92,6 +85,8 @@ type
     function GetConst(Name: string): string;
 
     procedure ReadyForTranslateEvent(Sender: TObject);
+    function GetTranslateObject(Component: TComponent): ITranslate;
+    procedure TranslateComponent(Component: TComponent);
 
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
 
@@ -155,6 +150,26 @@ type
     function IndexOfName(const Name: string): Integer; override;
   end;
 
+  TComponentMethod = reference to procedure(Component: TComponent);
+
+  // The abstraction of the object tree walker
+  TDeepScanner = class
+  protected
+    FComponentMethod: TComponentMethod;
+  public
+    constructor Create(ComponentMethod: TComponentMethod);
+
+    procedure DeepScan(Parent: TComponent); virtual; abstract;
+  end;
+
+  TDeepScannerClass = class of TDeepScanner;
+
+  TSchemeSourceFunction = function(Target: TObject): string;
+
+  // The function should return True, if it is responsible for the passed parameters
+  TTranslateSchemeFunction = function(Target: TObject; const Scheme: string;
+    const TranslatedValue: string): Boolean;
+
 // Initializes the global TLang instance Lang
 //
 // @param LangPath Path where all your language files are located
@@ -170,6 +185,10 @@ procedure RegisterSchemeSource(TargetClass: TClass; Func: TSchemeSourceFunction)
 
 procedure RegisterSchemeTranslate(TargetClass: TClass; Func: TTranslateSchemeFunction;
   HighPriority: Boolean = False);
+
+procedure RegisterDeepScannerClass(Scanner: TDeepScannerClass);
+
+procedure RegisterRootComponent(Component: TComponent);
 
 var
   {**
@@ -196,8 +215,6 @@ type
   TSchemeSourceList = TList<TSchemeSourceEntry>;
 
 var
-  SchemeTranslateRegistry: TSchemeList;
-  SchemeSourceRegistry: TSchemeSourceList;
   OriginShortCutToText: TOverWrittenData;
 
 procedure InitializeLang(LangPath, LangCode: String);
@@ -335,6 +352,9 @@ begin
   end;
 end;
 
+var
+  SchemeSourceRegistry: TSchemeSourceList;
+
 procedure RegisterSchemeSource(TargetClass: TClass; Func: TSchemeSourceFunction);
 var
   Entry: TSchemeSourceEntry;
@@ -347,6 +367,9 @@ begin
 
   SchemeSourceRegistry.Add(Entry);
 end;
+
+var
+  SchemeTranslateRegistry: TSchemeList;
 
 procedure RegisterSchemeTranslate(TargetClass: TClass; Func: TTranslateSchemeFunction;
   HighPriority: Boolean);
@@ -363,6 +386,22 @@ begin
     SchemeTranslateRegistry.Insert(0, Entry)
   else
     SchemeTranslateRegistry.Add(Entry);
+end;
+
+var
+  DeepScannerClass: TDeepScannerClass;
+
+procedure RegisterDeepScannerClass(Scanner: TDeepScannerClass);
+begin
+  DeepScannerClass := Scanner;
+end;
+
+var
+  RootComponent: TComponent;
+
+procedure RegisterRootComponent(Component: TComponent);
+begin
+  RootComponent := Component;
 end;
 
 { TLang }
@@ -771,9 +810,30 @@ begin
 end;
 
 {**
- * Übersetzt rekursiv alle Unterobjekte von ComponentHolder
+ * Liefert die Referenz, vom Objekt welches die ITranslate-Schnittstelle implementiert, falls...
+ *
+ * - sie tatsächlich die Schnittstelle implementiert
+ * - falls ITranslate.IsReadyFroTranslate TRUE liefert
+ *
+ * gleichzeitig setzt es das OnReadyForTranslate-Event, wenn ITranslate.IsReadyFroTranslate
+ * FALSE liefert.
+ *
+ * Sonst wird nil geliefert.
  *}
-procedure TLang.Translate(ComponentHolder: TComponent);
+function TLang.GetTranslateObject(Component: TComponent): ITranslate;
+begin
+  Result := nil;
+  if not Supports(Component, ITranslate) then
+    Exit;
+  Result := Component as ITranslate;
+  if not Result.IsReadyForTranslate then
+  begin
+    Result.OnReadyForTranslate(ReadyForTranslateEvent);
+    Result := nil;
+  end;
+end;
+
+procedure TLang.TranslateComponent(Component: TComponent);
 var
   Current: TComponent;
 
@@ -819,72 +879,31 @@ var
     end;
   end;
 
-  {**
-   * Liefert die Referenz, vom Objekt welches die ITranslate-Schnittstelle implementiert, falls...
-   *
-   * - sie tatsächlich die Schnittstelle implementiert
-   * - falls ITranslate.IsReadyFroTranslate TRUE liefert
-   *
-   * gleichzeitig setzt es das OnReadyForTranslate-Event, wenn ITranslate.IsReadyFroTranslate
-   * FALSE liefert.
-   *
-   * Sonst wird nil geliefert.
-   *}
-  function GetTranslateObject(Component: TComponent): ITranslate;
-  begin
-    Result := nil;
-    if not Supports(Component, ITranslate) then
-      Exit;
-    Result := Component as ITranslate;
-    if not Result.IsReadyForTranslate then
+var
+  TranslateObject: ITranslate;
+  Entry: TSchemeSourceEntry;
+  SchemeSource: string;
+begin
+  for Entry in SchemeSourceRegistry do
+    if Component is Entry.TargetClass then
     begin
-      Result.OnReadyForTranslate(ReadyForTranslateEvent);
-      Result := nil;
-    end;
-  end;
-
-  procedure TranslateComponent(Component: TComponent);
-  var
-    TranslateObject: ITranslate;
-    Entry: TSchemeSourceEntry;
-    SchemeSource: string;
-  begin
-    for Entry in SchemeSourceRegistry do
-      if Component is Entry.TargetClass then
-      begin
-        Current := Component;
-        SchemeSource := Entry.SchemeSourceFunction(Current);
-        TranslateScheme(SchemeSource);
-        Break;
-      end;
-
-    TranslateObject := GetTranslateObject(Component);
-    if Assigned(TranslateObject) then
-      TranslateObject.Translate;
-  end;
-
-  {**
-   * Durchläuft alle mit Parent verbundenen Komponenten rekursiv.
-   *}
-  procedure DeepScan(Parent: TComponent);
-  var
-    cc: Integer;
-  begin
-    if Parent is TCustomActionList then
-    begin
-      with TCustomActionList(Parent) do
-        for cc := 0 to ActionCount - 1 do
-          TranslateComponent(Actions[cc]);
+      Current := Component;
+      SchemeSource := Entry.SchemeSourceFunction(Current);
+      TranslateScheme(SchemeSource);
+      Break;
     end;
 
-    for cc := 0 to Parent.ComponentCount - 1 do
-    begin
-      TranslateComponent(Parent.Components[cc]);
-      if Parent.Components[cc].ComponentCount > 0 then
-        DeepScan(Parent.Components[cc]);
-    end;
-  end;
+  TranslateObject := GetTranslateObject(Component);
+  if Assigned(TranslateObject) then
+    TranslateObject.Translate;
+end;
 
+{**
+ * Übersetzt rekursiv alle Unterobjekte von ComponentHolder
+ *}
+procedure TLang.Translate(ComponentHolder: TComponent);
+var
+  DeepScanner: TDeepScanner;
 begin
   {**
    * Das hier bedeutet, dass das Objekt noch nicht bereit für die Übersetzung ist, wenn das
@@ -899,7 +918,13 @@ begin
     Exit;
 
   TranslateComponent(ComponentHolder);
-  DeepScan(ComponentHolder);
+
+  DeepScanner := DeepScannerClass.Create(TranslateComponent);
+  try
+    DeepScanner.DeepScan(ComponentHolder);
+  finally
+    DeepScanner.Free;
+  end;
 end;
 
 // Translates an incoming string
@@ -972,7 +997,7 @@ end;
  *}
 procedure TLang.TranslateApplication;
 begin
-  Translate(Application);
+  Translate(RootComponent);
 end;
 
 function ShortCutToTextController(ShortCut: TShortCut): string;
@@ -1036,6 +1061,13 @@ begin
   end;
 
   FNameHashValid := True;
+end;
+
+{ TDeepScanner }
+
+constructor TDeepScanner.Create(ComponentMethod: TComponentMethod);
+begin
+  FComponentMethod := ComponentMethod;
 end;
 
 initialization
