@@ -2,13 +2,15 @@ program DemoProject;
 
 uses
   Vcl.Forms,
-  Main in 'Main.pas' {Form1};
+  Main in 'Main.pas' {MainForm},
+  Localization in '..\Localization.pas',
+  ProcedureHook in '..\ProcedureHook.pas';
 
 {$R *.res}
 
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  Application.CreateForm(TForm1, Form1);
+  Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.

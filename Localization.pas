@@ -152,19 +152,14 @@ type
     function IndexOfName(const Name: string): Integer; override;
   end;
 
-{**
- * Initializes the global TLang instance Lang
- *
- * @param WorkPath Pass a path where you have write permissions.
- *        Currently there is only the file "LangInfo.ini" saved, which contains some informations
- *        for faster access and language file change detections.
- * @param LangPath Path where all your language files are located
- * @param LangCode Optional. ISO639-1 standard. Initialize with a specific language.
- *        If no LangCode is passed:
- *        - Language file, which match the system language, is used
- *        - If no language file exists for the system language, so English (en) will be used.
- *}
-procedure InitializeLang(WorkPath, LangPath: string; LangCode: string = '');
+// Initializes the global TLang instance Lang
+//
+// @param LangPath Path where all your language files are located
+// @param LangCode Optional. ISO639-1 standard. Initialize with a specific language.
+//        If no LangCode is passed:
+//        - Language file, which match the system language, is used
+//        - If no language file exists for the system language, so English (en) will be used.
+procedure InitializeLang(LangPath: string; LangCode: string = '');
 
 function CountFormat(const Conditions: string; Count: Integer): string;
 
@@ -182,7 +177,7 @@ implementation
 var
   OriginShortCutToText: TOverWrittenData;
 
-procedure InitializeLang(WorkPath, LangPath, LangCode: String);
+procedure InitializeLang(LangPath, LangCode: String);
 const
   DefaultLangCode: string = 'en';
 begin
@@ -911,7 +906,7 @@ var
   begin
     FirstPos := GroupOffset;
     LastPos := FirstPos + GroupLength;
-    Result := Copy(Incoming, 1, FirstPos - 1) + Replace + Copy(Incoming, LastPos + 1);
+    Result := Copy(Incoming, 1, FirstPos - 1) + Replace + Copy(Incoming, LastPos);
     Offset := FirstPos + Length(Replace);
   end;
 
