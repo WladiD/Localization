@@ -9,12 +9,7 @@ uses
   System.Types,
   System.IniFiles,
   System.RegularExpressions,
-  Generics.Collections,
-
-  Vcl.Menus,
-  Vcl.Consts,
-
-  ProcedureHook;
+  Generics.Collections;
 
 type
   // Translate interface, which can be implemented on any TComponent descendant and will be
@@ -49,9 +44,6 @@ type
 
   TLang = class(TComponent)
   protected
-    type
-    TMenuKeyCap = (mkcBkSp, mkcTab, mkcEsc, mkcEnter, mkcSpace, mkcPgUp, mkcPgDn, mkcEnd,
-      mkcHome, mkcLeft, mkcUp, mkcRight, mkcDown, mkcIns, mkcDel, mkcShift, mkcCtrl, mkcAlt);
 
     const
     LangFileNameFormat: string = 'Lang.%s.ini';
@@ -65,7 +57,7 @@ type
     FLangCode: string;
     FLangInternationalName: string;
     FLangLocalName: string;
-    FMenuKeyCaps: array[TMenuKeyCap] of string;
+
     {**
      * Runtime translate of some resource strings of Delphi's Consts.pas
      *
@@ -107,7 +99,6 @@ type
     function IsLanguageAvailable(LangCode: string): Boolean;
 
     function CountFormat(StringIndex, Count: Integer): string;
-    function ShortCutToText(ShortCut: TShortCut): string;
 
     function Translate(Incoming: string): string; overload;
     procedure Translate(ComponentHolder: TComponent); overload;
@@ -190,6 +181,9 @@ procedure RegisterDeepScannerClass(Scanner: TDeepScannerClass);
 
 procedure RegisterRootComponent(Component: TComponent);
 
+procedure RegisterAfterLanguageChangeNotifyEvent(NotifyEvent: TNotifyEvent);
+procedure RemoveAfterLanguageChangeNotifyEvent(NotifyEvent: TNotifyEvent);
+
 var
   {**
    * Global TLang instance
@@ -213,9 +207,6 @@ type
     SchemeSourceFunction: TSchemeSourceFunction;
   end;
   TSchemeSourceList = TList<TSchemeSourceEntry>;
-
-var
-  OriginShortCutToText: TOverWrittenData;
 
 procedure InitializeLang(LangPath, LangCode: String);
 const
@@ -402,6 +393,22 @@ var
 procedure RegisterRootComponent(Component: TComponent);
 begin
   RootComponent := Component;
+end;
+
+var
+  AfterLanguageChangeNotifyList: TList<TNotifyEvent>;
+
+procedure RegisterAfterLanguageChangeNotifyEvent(NotifyEvent: TNotifyEvent);
+begin
+  if not Assigned(AfterLanguageChangeNotifyList) then
+    AfterLanguageChangeNotifyList := TList<TNotifyEvent>.Create;
+  AfterLanguageChangeNotifyList.Add(NotifyEvent);
+end;
+
+procedure RemoveAfterLanguageChangeNotifyEvent(NotifyEvent: TNotifyEvent);
+begin
+  if Assigned(AfterLanguageChangeNotifyList) then
+    AfterLanguageChangeNotifyList.Remove(NotifyEvent);
 end;
 
 { TLang }
@@ -629,73 +636,6 @@ var
         List.Delete(cc);
   end;
 
-  procedure ReadKeyCaptionConsts;
-  const
-    KeyCapIdents: array[TMenuKeyCap] of string = (
-      'KeyBackspaceShort',
-      'KeyTabShort',
-      'KeyEscapeShort',
-      'KeyEnterShort',
-      'KeySpaceShort',
-      'KeyPageUpShort',
-      'KeyPageDownShort',
-      'KeyEndShort',
-      'KeyHomeShort',
-      'KeyArrowLeftShort',
-      'KeyArrowUpShort',
-      'KeyArrowRightShort',
-      'KeyArrowDownShort',
-      'KeyInsertShort',
-      'KeyDeleteShort',
-      'KeyShiftShort',
-      'KeyControlShort',
-      'KeyAlternateShort');
-  var
-    cc: Integer;
-  begin
-    for cc := 0 to Ord(High(TMenuKeyCap)) do
-      FMenuKeyCaps[TMenuKeyCap(cc)] := Consts[KeyCapIdents[TMenuKeyCap(cc)]];
-  end;
-
-  procedure HookConsts;
-  type
-    TConstAssign = record
-      Name: string;
-      Target: PResStringRec;
-    end;
-  const
-    ConstMax = 17;
-    ConstResourcesMap: array[0..ConstMax] of TConstAssign = (
-      (Name: 'SMsgDlgWarning'; Target: @SMsgDlgWarning),
-      (Name: 'SMsgDlgError'; Target: @SMsgDlgError),
-      (Name: 'SMsgDlgInformation'; Target: @SMsgDlgInformation),
-      (Name: 'SMsgDlgConfirm'; Target: @SMsgDlgConfirm),
-      (Name: 'SMsgDlgYes'; Target: @SMsgDlgYes),
-      (Name: 'SMsgDlgNo'; Target: @SMsgDlgNo),
-      (Name: 'SMsgDlgOK'; Target: @SMsgDlgOK),
-      (Name: 'SMsgDlgCancel'; Target: @SMsgDlgCancel),
-      (Name: 'SMsgDlgHelp'; Target: @SMsgDlgHelp),
-      (Name: 'SMsgDlgHelpNone'; Target: @SMsgDlgHelpNone),
-      (Name: 'SMsgDlgHelpHelp'; Target: @SMsgDlgHelpHelp),
-      (Name: 'SMsgDlgAbort'; Target: @SMsgDlgAbort),
-      (Name: 'SMsgDlgRetry'; Target: @SMsgDlgRetry),
-      (Name: 'SMsgDlgIgnore'; Target: @SMsgDlgIgnore),
-      (Name: 'SMsgDlgAll'; Target: @SMsgDlgAll),
-      (Name: 'SMsgDlgNoToAll'; Target: @SMsgDlgNoToAll),
-      (Name: 'SMsgDlgYesToAll'; Target: @SMsgDlgYesToAll),
-      (Name: 'SMsgDlgClose'; Target: @SMsgDlgClose)
-    );
-  var
-    cc: Integer;
-  begin
-    SetLength(FConstResources, ConstMax + 1);
-    for cc := 0 to ConstMax do
-    begin
-      FConstResources[cc] := Consts[ConstResourcesMap[cc].Name];
-      HookResourceString(ConstResourcesMap[cc].Target, PChar(FConstResources[cc]));
-    end;
-  end;
-
 begin
   if (FLangCode = NewLangCode) or not IsLanguageAvailable(NewLangCode) then
     Exit;
@@ -738,75 +678,18 @@ begin
      *}
     Prepare(FStrings);
     Prepare(FMessages);
-    {**
-     * Static binding of some lang constants
-     *}
-    ReadKeyCaptionConsts;
-    HookConsts;
 
     FInitialized := True;
+
+    if Assigned(AfterLanguageChangeNotifyList) then
+      for cc := 0 to AfterLanguageChangeNotifyList.Count - 1 do
+        AfterLanguageChangeNotifyList[cc](Self);
+
     TranslateApplication;
   finally
     INI.Free;
     SectionList.Free;
   end;
-end;
-
-function TLang.ShortCutToText(ShortCut: TShortCut): string;
-var
-  Name: string;
-  Key: Byte;
-
-  function GetSpecialName(ShortCut: TShortCut): string;
-  var
-    ScanCode: Integer;
-    KeyName: array[0..255] of Char;
-  begin
-    Result := '';
-    ScanCode := MapVirtualKey(LoByte(Word(ShortCut)), 0) shl 16;
-    if ScanCode <> 0 then
-    begin
-      GetKeyNameText(ScanCode, KeyName, Length(KeyName));
-      GetSpecialName := KeyName;
-    end;
-  end;
-begin
-  Key := LoByte(Word(ShortCut));
-  case Key of
-    $08, $09:
-      Name := FMenuKeyCaps[TMenuKeyCap(Ord(mkcBkSp) + Key - $08)];
-    $0D:
-      Name := FMenuKeyCaps[mkcEnter];
-    $1B:
-      Name := FMenuKeyCaps[mkcEsc];
-    $20..$28:
-      Name := FMenuKeyCaps[TMenuKeyCap(Ord(mkcSpace) + Key - $20)];
-    $2D..$2E:
-      Name := FMenuKeyCaps[TMenuKeyCap(Ord(mkcIns) + Key - $2D)];
-    $30..$39:
-      Name := Chr(Key - $30 + Ord('0'));
-    $41..$5A:
-      Name := Chr(Key - $41 + Ord('A'));
-    $60..$69:
-      Name := Chr(Key - $60 + Ord('0'));
-    $70..$87:
-      Name := 'F' + IntToStr(Key - $6F);
-    else
-      Name := GetSpecialName(ShortCut);
-  end;
-  if Name <> '' then
-  begin
-    Result := '';
-    if ShortCut and scCtrl <> 0 then
-      Result := Result + FMenuKeyCaps[mkcCtrl] + '+';
-    if ShortCut and scAlt <> 0 then
-      Result := Result + FMenuKeyCaps[mkcAlt] + '+';
-    if ShortCut and scShift <> 0 then
-      Result := Result + FMenuKeyCaps[mkcShift] + '+';
-    Result := Result + Name;
-  end
-  else
-    Result := '';
 end;
 
 {**
@@ -1000,14 +883,6 @@ begin
   Translate(RootComponent);
 end;
 
-function ShortCutToTextController(ShortCut: TShortCut): string;
-begin
-  if Assigned(Lang) then
-    Result := Lang.ShortCutToText(ShortCut)
-  else
-    Result := '';
-end;
-
 {** TNameHashedStringList **}
 
 destructor TNameHashedStringList.Destroy;
@@ -1071,13 +946,11 @@ begin
 end;
 
 initialization
-  Lang := nil;
-  OverwriteProcedure(@ShortCutToText, @ShortCutToTextController, @OriginShortCutToText);
 
 finalization
   FreeAndNil(Lang);
   FreeAndNil(SchemeTranslateRegistry);
   FreeAndNil(SchemeSourceRegistry);
-  RestoreProcedure(@ShortCutToText, OriginShortCutToText);
+  FreeAndNil(AfterLanguageChangeNotifyList);
 
 end.
