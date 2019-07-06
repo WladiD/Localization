@@ -9,10 +9,7 @@ uses
   System.Types,
   System.IniFiles,
   System.RegularExpressions,
-  Vcl.StdCtrls,
-  Vcl.Controls,
-  Vcl.ExtCtrls,
-  Vcl.ComCtrls,
+  Generics.Collections,
   Vcl.Menus,
   Vcl.Forms,
   Vcl.ActnList,
@@ -50,6 +47,12 @@ type
 
   TLangEntries = array of TLangEntry;
   TNameHashedStringList = class;
+
+  TSchemeSourceFunction = function(Target: TObject): string;
+
+  // The function should return True, if it is responsible for the passed parameters
+  TTranslateSchemeFunction = function(Target: TObject; const Scheme: string;
+    const TranslatedValue: string): Boolean;
 
   TLang = class(TComponent)
   protected
@@ -91,6 +94,13 @@ type
     procedure ReadyForTranslateEvent(Sender: TObject);
 
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+
+  public
+    const
+    CaptionScheme = 'caption';
+    HintScheme = 'hint';
+    TextHintScheme = 'texthint';
+
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -156,6 +166,11 @@ procedure InitializeLang(LangPath: string; LangCode: string = '');
 
 function CountFormat(const Conditions: string; Count: Integer): string;
 
+procedure RegisterSchemeSource(TargetClass: TClass; Func: TSchemeSourceFunction);
+
+procedure RegisterSchemeTranslate(TargetClass: TClass; Func: TTranslateSchemeFunction;
+  HighPriority: Boolean = False);
+
 var
   {**
    * Global TLang instance
@@ -167,7 +182,22 @@ var
 
 implementation
 
+type
+  TSchemeEntry = record
+    TargetClass: TClass;
+    TranslateSchemeFunction: TTranslateSchemeFunction;
+  end;
+  TSchemeList = TList<TSchemeEntry>;
+
+  TSchemeSourceEntry = record
+    TargetClass: TClass;
+    SchemeSourceFunction: TSchemeSourceFunction;
+  end;
+  TSchemeSourceList = TList<TSchemeSourceEntry>;
+
 var
+  SchemeTranslateRegistry: TSchemeList;
+  SchemeSourceRegistry: TSchemeSourceList;
   OriginShortCutToText: TOverWrittenData;
 
 procedure InitializeLang(LangPath, LangCode: String);
@@ -303,6 +333,36 @@ begin
   finally
     ConditionList.Free;
   end;
+end;
+
+procedure RegisterSchemeSource(TargetClass: TClass; Func: TSchemeSourceFunction);
+var
+  Entry: TSchemeSourceEntry;
+begin
+  if not Assigned(SchemeSourceRegistry) then
+    SchemeSourceRegistry := TSchemeSourceList.Create;
+
+  Entry.TargetClass := TargetClass;
+  Entry.SchemeSourceFunction := Func;
+
+  SchemeSourceRegistry.Add(Entry);
+end;
+
+procedure RegisterSchemeTranslate(TargetClass: TClass; Func: TTranslateSchemeFunction;
+  HighPriority: Boolean);
+var
+  Entry: TSchemeEntry;
+begin
+  if not Assigned(SchemeTranslateRegistry) then
+    SchemeTranslateRegistry := TSchemeList.Create;
+
+  Entry.TargetClass := TargetClass;
+  Entry.TranslateSchemeFunction := Func;
+
+  if HighPriority then
+    SchemeTranslateRegistry.Insert(0, Entry)
+  else
+    SchemeTranslateRegistry.Add(Entry);
 end;
 
 { TLang }
@@ -717,46 +777,6 @@ procedure TLang.Translate(ComponentHolder: TComponent);
 var
   Current: TComponent;
 
-  procedure TranslateHint(Hint: string);
-  begin
-    if Current is TControl then
-      TControl(Current).Hint := Hint
-    else if Current is TAction then
-      TAction(Current).Hint := Hint;
-  end;
-
-  procedure TranslateCaption(Caption: string);
-  begin
-    if Current is TButton then
-      TButton(Current).Caption := Caption
-    else if Current is TRadioButton then
-      TRadioButton(Current).Caption := Caption
-    else if Current is TGroupBox then
-      TGroupBox(Current).Caption := Caption
-    else if Current is TPanel then
-      TPanel(Current).Caption := Caption
-    else if Current is TCheckBox then
-      TCheckBox(Current).Caption := Caption
-    else if Current is TTabSheet then
-      TTabSheet(Current).Caption := Caption
-    else if Current is TLabel then
-      TLabel(Current).Caption := Caption
-    else if Current is TMenuItem then
-      TMenuItem(Current).Caption := Caption
-    else if Current is TForm then
-      TForm(Current).Caption := Caption
-    else if Current is TAction then
-      TAction(Current).Caption := Caption
-    else if Current is TCustomLinkLabel then
-      TLinkLabel(Current).Caption := Caption;
-  end;
-
-  procedure TranslateTextHint(TextHint: string);
-  begin
-    if Current is TCustomEdit then
-      TCustomEdit(Current).TextHint := TextHint;
-  end;
-
   {**
    * Übersetzt die aktuelle Komponente in Current nach einem Schema
    *
@@ -764,29 +784,38 @@ var
    *
    * Beispiel: '"Caption=13..." "Hint=14"'
    *}
-  procedure TranslateSchema(Schema: string);
+  procedure TranslateScheme(Scheme: string);
   var
-    SchemaList: TStringList;
+    IncomingSchemes: TStringList;
     Replacement: string;
     cc: Integer;
+    SchemeEntry: TSchemeEntry;
+    MatchingClasses: TSchemeList;
   begin
-    SchemaList := TStringList.Create;
+    IncomingSchemes := nil;
+    MatchingClasses := TSchemeList.Create;
     try
-      SchemaList.CommaText := Schema;
-      for cc := 0 to SchemaList.Count - 1 do
-      begin
-        Schema := LowerCase(SchemaList.Names[cc]);
-        Replacement := Translate(SchemaList.ValueFromIndex[cc]);
+      for SchemeEntry in SchemeTranslateRegistry do
+        if Current is SchemeEntry.TargetClass then
+          MatchingClasses.Add(SchemeEntry);
 
-        if Schema = 'caption' then
-          TranslateCaption(Replacement)
-        else if Schema = 'hint' then
-          TranslateHint(Replacement)
-        else if Schema = 'texthint' then
-          TranslateTextHint(Replacement);
+      if MatchingClasses.Count = 0 then
+        Exit;
+
+      IncomingSchemes := TStringList.Create;
+      IncomingSchemes.CommaText := Scheme;
+      for cc := 0 to IncomingSchemes.Count - 1 do
+      begin
+        Scheme := LowerCase(IncomingSchemes.Names[cc]);
+        Replacement := Translate(IncomingSchemes.ValueFromIndex[cc]);
+
+        for SchemeEntry in MatchingClasses do
+          if SchemeEntry.TranslateSchemeFunction(Current, Scheme, Replacement) then
+            Break;
       end;
     finally
-      SchemaList.Free;
+      IncomingSchemes.Free;
+      MatchingClasses.Free;
     end;
   end;
 
@@ -817,17 +846,17 @@ var
   procedure TranslateComponent(Component: TComponent);
   var
     TranslateObject: ITranslate;
+    Entry: TSchemeSourceEntry;
+    SchemeSource: string;
   begin
-    if (Component is TControl) and (TControl(Component).HelpKeyword <> '') then
-    begin
-      Current := Component;
-      TranslateSchema(TControl(Current).HelpKeyword);
-    end
-    else if (Component is TAction) and (TAction(Component).HelpKeyword <> '') then
-    begin
-      Current := Component;
-      TranslateSchema(TAction(Current).HelpKeyword);
-    end;
+    for Entry in SchemeSourceRegistry do
+      if Component is Entry.TargetClass then
+      begin
+        Current := Component;
+        SchemeSource := Entry.SchemeSourceFunction(Current);
+        TranslateScheme(SchemeSource);
+        Break;
+      end;
 
     TranslateObject := GetTranslateObject(Component);
     if Assigned(TranslateObject) then
@@ -1015,6 +1044,8 @@ initialization
 
 finalization
   FreeAndNil(Lang);
+  FreeAndNil(SchemeTranslateRegistry);
+  FreeAndNil(SchemeSourceRegistry);
   RestoreProcedure(@ShortCutToText, OriginShortCutToText);
 
 end.
