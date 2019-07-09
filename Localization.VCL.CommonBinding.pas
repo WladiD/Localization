@@ -77,6 +77,20 @@ begin
     Result := False;
 end;
 
+function ContainedActionSchemeTranslate(Target: TObject; const Scheme: string;
+  const TranslatedValue: string): Boolean;
+var
+  Action: TContainedAction absolute Target;
+begin
+  Result := True;
+  if Scheme = TLang.CaptionScheme then
+    Action.Caption := TranslatedValue
+  else if Scheme = TLang.HintScheme then
+    Action.Hint := TranslatedValue
+  else
+    Result := False;
+end;
+
 function EditSchemeTranslate(Target: TObject; const Scheme: string;
   const TranslatedValue: string): Boolean;
 var
@@ -271,6 +285,7 @@ initialization
   RegisterSchemeSource(TContainedAction, ContainedActionSource);
 
   RegisterSchemeTranslate(TControl, ControlSchemeTranslate);
+  RegisterSchemeTranslate(TContainedAction, ContainedActionSchemeTranslate);
   RegisterSchemeTranslate(TCustomEdit, EditSchemeTranslate);
 
   RegisterDeepScannerClass(TVCLDeepScanner);
