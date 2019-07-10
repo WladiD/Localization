@@ -226,15 +226,6 @@ begin
   Lang.LangCode := LangCode;
 end;
 
-procedure HookResourceString(RS: PResStringRec; NewString: PChar);
-var
-  OldProtect: DWORD;
-begin
-  VirtualProtect(RS, SizeOf(RS^), PAGE_EXECUTE_READWRITE, @OldProtect);
-  RS^.Identifier := Integer(NewString);
-  VirtualProtect(RS, SizeOf(RS^), OldProtect, @OldProtect);
-end;
-
 {**
  * Formatiert eine Anzahl
  *
