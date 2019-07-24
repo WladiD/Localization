@@ -9,6 +9,7 @@ uses
   System.Variants,
   System.Classes,
   System.Actions,
+  System.UITypes,
   Vcl.Graphics,
   Vcl.Controls,
   Vcl.Forms,
@@ -188,7 +189,6 @@ procedure TMainForm.ShowMessageButtonClick(Sender: TObject);
   var
     cc: Integer;
     CB: TCheckBox;
-    OneButton: TMsgDlgBtn;
   begin
     Result := [];
 
