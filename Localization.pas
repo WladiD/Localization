@@ -104,27 +104,24 @@ type
     procedure Translate(ComponentHolder: TComponent); overload;
     procedure TranslateApplication;
 
-    {**
-     * Language code by the ISO639-1 standard
-     *}
+    // Language code by the ISO639-1 standard
     property LangCode: string read FLangCode write SetLangCode;
-    {**
-     * International name of the language
-     *}
+
+    // International name of the language
     property LangInternationalName: string read FLangInternationalName;
-    {**
-     * The native name of the language
-     *}
+
+    // The native name of the language
     property LangLocalName: string read FLangLocalName;
 
+    // The path, where the lang files are contained
     property LangPath: string read FLangPath;
-    {**
-     * Common strings
-     *}
+
+    // Common strings
+    //
+    // This is the default property. For the best possible speed is the index sequential.
     property Strings[Index: Integer]: string read GetString; default;
-    {**
-     * Named constants
-     *}
+
+    // Named constants
     property Consts[Name: string]: string read GetConst;
   end;
 
@@ -491,9 +488,6 @@ begin
   Result := Result + Format(LangFileNameFormat, [LangCode]);
 end;
 
-{**
- * Liefert einen String anhand eines Index
- *}
 function TLang.GetString(Index: Integer): string;
 begin
   if Index >= FMessagesOffset then
