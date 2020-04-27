@@ -560,7 +560,7 @@ var
   LangItem: string;
   LangVarPCRE: TRegEx;
   INI: TMemIniFile;
-  cc: Integer;
+  cc, InsertIndex: Integer;
 
   procedure Prepare(List: TStringList);
   var
@@ -646,8 +646,8 @@ begin
     INI.ReadSection(StringsSection, SectionList);
     CleanList(SectionList);
     for cc := 0 to SectionList.Count - 1 do
-      FStrings.Insert(StrToInt(SectionList[cc]), INI.ReadString(StringsSection,
-        SectionList[cc], ''));
+      if TryStrToInt(SectionList[cc], InsertIndex) then
+        FStrings.Insert(InsertIndex, INI.ReadString(StringsSection, SectionList[cc], ''));
     {**
      * Read messages
      *}
@@ -656,8 +656,9 @@ begin
     CleanList(SectionList);
     FMessagesOffset := StrToInt(SectionList[0]);
     for cc := 0 to SectionList.Count - 1 do
-      FMessages.Insert(StrToInt(SectionList[cc]) - FMessagesOffset,
-        INI.ReadString(MessagesSection, SectionList[cc], ''));
+      if TryStrToInt(SectionList[cc], InsertIndex) then
+        FMessages.Insert(InsertIndex - FMessagesOffset,
+          INI.ReadString(MessagesSection, SectionList[cc], ''));
     {**
      * Replace used constants in strings and messages
      *}
