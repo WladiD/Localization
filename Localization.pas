@@ -760,6 +760,9 @@ var
   Entry: TSchemeSourceEntry;
   SchemeSource: string;
 begin
+  if not Assigned(SchemeSourceRegistry) then
+    Exit;
+
   for Entry in SchemeSourceRegistry do
     if Component is Entry.TargetClass then
     begin
@@ -795,11 +798,14 @@ begin
 
   TranslateComponent(ComponentHolder);
 
-  DeepScanner := DeepScannerClass.Create(TranslateComponent);
-  try
-    DeepScanner.DeepScan(ComponentHolder);
-  finally
-    DeepScanner.Free;
+  if Assigned(DeepScannerClass) then
+  begin
+    DeepScanner := DeepScannerClass.Create(TranslateComponent);
+    try
+      DeepScanner.DeepScan(ComponentHolder);
+    finally
+      DeepScanner.Free;
+    end;
   end;
 end;
 
