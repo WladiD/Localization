@@ -3,7 +3,11 @@ unit Localization;
 interface
 
 uses
+{$IFDEF MSWINDOWS}
   Winapi.Windows,
+{$ELSE}
+  FMX.Platform,
+{$ENDIF}
   System.SysUtils,
   System.Classes,
   System.Types,
@@ -492,9 +496,7 @@ end;
  *}
 class function TLang.GetSystemLangCode: string;
 begin
-  {**
-   * Extend it as you need
-   *}
+{$IFDEF MSWINDOWS}
   case GetUserDefaultLangID and $00FF of
     LANG_GERMAN:
       Result := 'de';
@@ -531,6 +533,11 @@ begin
     else
       Result := 'en';
   end;
+{$ELSE}
+  var LocaleSvc: IFMXLocaleService;
+  if TPlatformServices.Current.SupportsPlatformService(IFMXLocaleService, LocaleSvc) then
+    Result := LocaleSvc.GetCurrentLangID;
+{$ENDIF}
 end;
 
 function TLang.IsLanguageAvailable(LangCode: string): Boolean;
