@@ -13,6 +13,10 @@ object MainForm: TMainForm
     Align = Top
     AutoSize = True
     StyledSettings = [Family, Style, FontColor]
+    HelpContext = 1
+    HelpKeyword = 'Text=0'
+    HelpType = htKeyword
+    Hint = 'Text=0'
     Margins.Left = 10.000000000000000000
     Margins.Top = 10.000000000000000000
     Margins.Right = 10.000000000000000000

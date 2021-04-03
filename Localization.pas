@@ -91,6 +91,7 @@ type
     CaptionScheme = 'caption';
     HintScheme = 'hint';
     TextHintScheme = 'texthint';
+    TextScheme = 'text';
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -728,6 +729,9 @@ var
     SchemeEntry: TSchemeEntry;
     MatchingClasses: TSchemeList;
   begin
+    if Scheme = '' then
+      Exit;
+
     IncomingSchemes := nil;
     MatchingClasses := TSchemeList.Create;
     try

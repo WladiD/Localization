@@ -3,7 +3,7 @@ program DemoFMXProject;
 uses
   System.StartUpCopy,
   FMX.Forms,
-  Main in 'Main.pas' {Form1},
+  Main in 'Main.pas' {MainForm},
   Localization in '..\Localization.pas',
   Localization.FMX.CommonBinding in '..\Localization.FMX.CommonBinding.pas';
 
@@ -11,6 +11,6 @@ uses
 
 begin
   Application.Initialize;
-  Application.CreateForm(TForm1, Form1);
+  Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.
