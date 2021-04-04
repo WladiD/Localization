@@ -32,6 +32,18 @@ begin
     Result := False;
 end;
 
+function ControlSchemeTranslate(Target: TObject; const Scheme: string;
+  const TranslatedValue: string): Boolean;
+var
+  Control: TControl absolute Target;
+begin
+  Result := True;
+  if Scheme = TLang.HintScheme then
+    Control.Hint := TranslatedValue
+  else
+    Result := False;
+end;
+
 type
   TFMXDeepScanner = class(TDeepScanner)
   public
@@ -65,6 +77,7 @@ initialization
   RegisterSchemeSource(TStyledControl, ControlSchemeSource);
 
   RegisterSchemeTranslate(TPresentedTextControl, PresentedTextControlSchemeTranslate);
+  RegisterSchemeTranslate(TControl, ControlSchemeTranslate);
 
   RegisterDeepScannerClass(TFMXDeepScanner);
 

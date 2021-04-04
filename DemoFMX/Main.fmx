@@ -52,6 +52,9 @@ object MainForm: TMainForm
     end
     object LangCombo: TComboBox
       Align = Right
+      HelpContext = 1
+      HelpKeyword = '"Hint=1"'
+      HelpType = htKeyword
       Margins.Right = 5.000000000000000000
       Position.X = 256.000000000000000000
       Size.Width = 190.000000000000000000
