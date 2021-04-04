@@ -304,13 +304,10 @@ var
    *}
   function HasValidFormatString(const Output: string): Boolean;
   begin
-    {**
-     * The percent sign must be there in each case, so we do a short check
-     *}
-    if Pos('%', Output) = 0 then
-      Exit(False);
-
-    Result := TRegEx.IsMatch(Output, '%[\-\d\.:]*[dux]', [roIgnoreCase]);
+    Result :=
+      // The percent sign must be there in each case, so this is a short check
+      (Pos('%', Output) > 0) and
+      TRegEx.IsMatch(Output, '%[\-\d\.:]*[dux]', [roIgnoreCase]);
   end;
 
 begin
