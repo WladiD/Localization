@@ -101,6 +101,7 @@ type
 
     function GetLangFileName(LangCode: string; IncludePath: Boolean = True): string;
     function GetAvailableLanguages: TLangEntries;
+    procedure FillAvailableLanguages(Target: TStrings; out SelIndex: Integer);
     function IsLanguageAvailable(LangCode: string): Boolean;
 
     function CountFormat(StringIndex, Count: Integer): string;
@@ -214,9 +215,7 @@ procedure InitializeLang(LangPath, LangCode: String);
 const
   DefaultLangCode: string = 'en';
 begin
-  if Assigned(Lang) then
-    Lang.Free;
-
+  Lang.Free;
   Lang := TLang.Create(nil);
   Lang.FLangPath := IncludeTrailingPathDelimiter(LangPath);
 
@@ -424,6 +423,31 @@ begin
   FConsts.Free;
 
   inherited Destroy;
+end;
+
+procedure TLang.FillAvailableLanguages(Target: TStrings; out SelIndex: Integer);
+var
+  Language: TLangEntry;
+  DisplayText: string;
+  ItemIndex: Integer;
+begin
+  Target.Clear;
+  Target.BeginUpdate;
+  try
+    SelIndex := -1;
+    for Language in GetAvailableLanguages do
+    begin
+      if Language.LocalName <> Language.InternationalName then
+        DisplayText := Format('%s (%s)', [Language.LocalName, Language.InternationalName])
+      else
+        DisplayText := Language.LocalName;
+      ItemIndex := Target.Add(DisplayText);
+      if Language.Code = LangCode then
+        SelIndex := ItemIndex;
+    end;
+  finally
+    Target.EndUpdate;
+  end;
 end;
 
 function TLang.CountFormat(StringIndex, Count: Integer): string;
