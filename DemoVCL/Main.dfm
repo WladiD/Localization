@@ -34,7 +34,7 @@ object MainForm: TMainForm
   end
   object LangCombo: TComboBox
     Left = 570
-    Top = 13
+    Top = 8
     Width = 145
     Height = 21
     Style = csDropDownList

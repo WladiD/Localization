@@ -14,9 +14,8 @@ object MainForm: TMainForm
     AutoSize = True
     StyledSettings = [Family, Style, FontColor]
     HelpContext = 1
-    HelpKeyword = 'Text=0'
+    HelpKeyword = 'Text=0,Hint=0'
     HelpType = htKeyword
-    Hint = 'Text=0'
     Margins.Left = 10.000000000000000000
     Margins.Top = 10.000000000000000000
     Margins.Right = 10.000000000000000000
@@ -28,5 +27,36 @@ object MainForm: TMainForm
     TextSettings.Font.Size = 20.000000000000000000
     Text = 'This is the Demo project for the Localization Delphi unit'
     TabOrder = 0
+  end
+  object Layout1: TLayout
+    Align = Top
+    Position.Y = 64.000000000000000000
+    Size.Width = 478.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object Label2: TLabel
+      Align = Client
+      HelpContext = 1
+      HelpKeyword = '"Text=1:"'
+      HelpType = htKeyword
+      Margins.Right = 5.000000000000000000
+      Size.Width = 222.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.HorzAlign = Trailing
+      Text = 'Choose your language:'
+      TabOrder = 0
+    end
+    object LangCombo: TComboBox
+      Align = Right
+      Margins.Right = 5.000000000000000000
+      Position.X = 227.000000000000000000
+      Size.Width = 246.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      OnChange = LangComboChange
+    end
   end
 end

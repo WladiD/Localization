@@ -80,8 +80,6 @@ type
     function IsReadyForTranslate: Boolean;
     procedure OnReadyForTranslate(NotifyEvent: TNotifyEvent);
     procedure Translate;
-  public
-    { Public-Deklarationen }
   end;
 
 var
@@ -95,30 +93,10 @@ procedure TMainForm.FormCreate(Sender: TObject);
 
   procedure FillLangCombo;
   var
-    Language: TLangEntry;
-    DisplayText: string;
-    ItemIndex, SelIndex: Integer;
+    SelIndex: Integer;
   begin
-    LangCombo.Items.Clear;
-    LangCombo.Items.BeginUpdate;
-    try
-      SelIndex := -1;
-      for Language in FAvailableLanguages do
-      begin
-        if Language.LocalName <> Language.InternationalName then
-          DisplayText := Format('%s (%s)', [Language.LocalName, Language.InternationalName])
-        else
-          DisplayText := Language.LocalName;
-        ItemIndex := LangCombo.Items.Add(DisplayText);
-        if Language.Code = Lang.LangCode then
-          SelIndex := ItemIndex;
-      end;
-
-      if SelIndex >= 0 then
-        LangCombo.ItemIndex := SelIndex;
-    finally
-      LangCombo.Items.EndUpdate;
-    end;
+    Lang.FillAvailableLanguages(LangCombo.Items, SelIndex);
+    LangCombo.ItemIndex := SelIndex;
   end;
 
 begin
