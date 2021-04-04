@@ -48,6 +48,10 @@ type
   TLangEntries = array of TLangEntry;
   TNameHashedStringList = class;
 
+  TLangSource = (lsFile, lsVirtual);
+  TLangAvailableEvent = function(LangCode: string): Boolean of object;
+  TLangSourceEvent = function(LangCode: string; out OwnStrings: Boolean): TStrings of object;
+
   TLang = class(TComponent)
   protected
 
@@ -76,6 +80,9 @@ type
     FConsts: TStringList;
     FInitialized: Boolean;
     FNumberPCRE: TRegEx;
+    FLangSource: TLangSource;
+    FOnLangAvailable: TLangAvailableEvent;
+    FOnLangSource: TLangSourceEvent;
     FLangPath: string;
     FDeepScanner: TDeepScanner;
 
@@ -132,6 +139,16 @@ type
 
     // Named constants
     property Consts[Name: string]: string read GetConst;
+
+    property LangSource: TLangSource read FLangSource write FLangSource;
+
+    // This event will be triggered (if LangSource = lsVirtual), to determine whether a
+    // specific language exists
+    property OnLangAvailable: TLangAvailableEvent read FOnLangAvailable write FOnLangAvailable;
+
+    // This event will be triggered (if LangSource = lsVirtual), to get the whole language
+    // definition as TStrings
+    property OnLangSource: TLangSourceEvent read FOnLangSource write FOnLangSource;
   end;
 
   TNameHashedStringList = class(TStringList)
@@ -174,7 +191,9 @@ type
 //        If no LangCode is passed:
 //        - Language file, which match the system language, is used
 //        - If no language file exists for the system language, so English (en) will be used.
-procedure InitializeLang(LangPath: string; LangCode: string = '');
+procedure InitializeLang(LangPath: string; LangCode: string = ''); overload;
+procedure InitializeLang(OnLangAvailable: TLangAvailableEvent; OnLangSource: TLangSourceEvent;
+  LangCode: string = ''); overload;
 
 function CountFormat(const Conditions: string; Count: Integer): string;
 
@@ -214,13 +233,32 @@ type
   end;
   TSchemeSourceList = TList<TSchemeSourceEntry>;
 
-procedure InitializeLang(LangPath, LangCode: String);
 const
   DefaultLangCode: string = 'en';
+
+procedure InitializeLang(LangPath, LangCode: string);
 begin
   Lang.Free;
   Lang := TLang.Create(nil);
+  Lang.LangSource := lsFile;
   Lang.FLangPath := IncludeTrailingPathDelimiter(LangPath);
+
+  if LangCode = '' then
+    LangCode := TLang.GetSystemLangCode;
+  if (LangCode <> DefaultLangCode) and not Lang.IsLanguageAvailable(LangCode) then
+    LangCode := DefaultLangCode;
+
+  Lang.LangCode := LangCode;
+end;
+
+procedure InitializeLang(OnLangAvailable: TLangAvailableEvent; OnLangSource: TLangSourceEvent;
+  LangCode: string);
+begin
+  Lang.Free;
+  Lang := TLang.Create(nil);
+  Lang.LangSource := lsVirtual;
+  Lang.OnLangAvailable := OnLangAvailable;
+  Lang.OnLangSource := OnLangSource;
 
   if LangCode = '' then
     LangCode := TLang.GetSystemLangCode;
@@ -409,6 +447,7 @@ constructor TLang.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
+  FLangSource := lsFile;
   FStrings := TStringList.Create;
   FMessages := TStringList.Create;
   FConsts := TNameHashedStringList.Create;
@@ -568,7 +607,9 @@ end;
 
 function TLang.IsLanguageAvailable(LangCode: string): Boolean;
 begin
-  Result := FileExists(GetLangFileName(LangCode));
+  Result :=
+    ((LangSource = lsFile) and FileExists(GetLangFileName(LangCode))) or
+    ((LangSource = lsVirtual) and Assigned(FOnLangAvailable) and FOnLangAvailable(LangCode));
 end;
 
 procedure TLang.Notification(AComponent: TComponent; Operation: TOperation);
@@ -594,6 +635,8 @@ var
   LangVarPCRE: TRegEx;
   INI: TMemIniFile;
   cc, InsertIndex: Integer;
+  SourceStrings: TStrings;
+  OwnSourceStrings: Boolean;
 
   procedure Prepare(List: TStringList);
   var
@@ -663,7 +706,24 @@ begin
   FStrings.Clear;
   FMessages.Clear;
   SectionList := TStringList.Create;
-  INI := TMemIniFile.Create(GetLangFileName(LangCode), TEncoding.UTF8);
+
+  if LangSource = lsFile then
+    INI := TMemIniFile.Create(GetLangFileName(LangCode), TEncoding.UTF8)
+  else if (LangSource = lsVirtual) and Assigned(FOnLangSource) then
+  begin
+    INI := TMemIniFile.Create('');
+    OwnSourceStrings := False;
+    SourceStrings := FOnLangSource(LangCode, OwnSourceStrings);
+    try
+      INI.SetStrings(SourceStrings);
+    finally
+      if OwnSourceStrings then
+        SourceStrings.Free;
+    end;
+  end
+  else
+    Exit;
+
   // Regulären Ausdruck für das Ersetzen von Sprachvariablen initiieren
   LangVarPCRE := TRegEx.Create('\$([\w\d\-]+)\$', [roIgnoreCase, roCompiled]);
   try
