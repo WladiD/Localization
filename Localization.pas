@@ -1,4 +1,4 @@
-unit Localization;
+Ôªøunit Localization;
 
 interface
 
@@ -273,31 +273,31 @@ end;
  *
  * Der String mit dem StringIndex muss dem SDF-Format (CSV) entsprechen, d.h.:
  *
- * Jede Anweisung, die ein Leerzeichen [ ], Komma [,] oder Anf¸hrungsstriche ["] enth‰lt, wird in
- * Anf¸hrungsstriche eingeschlossen. Eventuell in der Anweisung vorkommende Anf¸hrungsstriche werden
+ * Jede Anweisung, die ein Leerzeichen [ ], Komma [,] oder Anf√ºhrungsstriche ["] enth√§lt, wird in
+ * Anf√ºhrungsstriche eingeschlossen. Eventuell in der Anweisung vorkommende Anf√ºhrungsstriche werden
  * verdoppelt. Jede Anweisung wird mit einem Komma [,] oder einem Leerzeichen [ ] voneinander
  * getrennt.
  *
  * Jede Anweisung beginnt mit einer Operation gefolgt vom Gleichheitszeichen [=]. Vor und nach dem
  * Gleichheitszeichen sollten keine Leerzeichen stehen.
  *
- * Nach dem Gleichheitszeichen folgt der Ausgabestring, der optional einen f¸r die
- * Delphi-Format-Funktion g¸ltigen Format-String (%d, %u oder %x) enth‰lt.
+ * Nach dem Gleichheitszeichen folgt der Ausgabestring, der optional einen f√ºr die
+ * Delphi-Format-Funktion g√ºltigen Format-String (%d, %u oder %x) enth√§lt.
  *
  * Operationen
  * -----------
  * eq[Zahl] = Gleich (Equal)
- * gt[Zahl] = Grˆﬂer als (Greater then)
+ * gt[Zahl] = Gr√∂√üer als (Greater then)
  * lt[Zahl] = Kleiner als (Lower then)
  * else     = Sonstiger Fall, wird beim erreichen sofort verwendet, restliche Anweisungen werden
- *            nicht ber¸cksichtigt.
+ *            nicht ber√ºcksichtigt.
  *
  * Die Anweisungen werden von Links nach Rechts verarbeitet, was als erstes zutrifft, wird
  * verwendet.
  *
  * Beispiele:
- * "eq0=Keine Dateien ausgew‰hlt","eq1=Eine Datei ausgew‰hlt","else=%d Dateien ausgew‰hlt"
- * "lt0=Fehler","eq100=Genau ein Hundert","gt100=‹ber ein Hundert","lt100=Weniger als ein Hundert"
+ * "eq0=Keine Dateien ausgew√§hlt","eq1=Eine Datei ausgew√§hlt","else=%d Dateien ausgew√§hlt"
+ * "lt0=Fehler","eq100=Genau ein Hundert","gt100=√úber ein Hundert","lt100=Weniger als ein Hundert"
  *}
 function CountFormat(const Conditions: string; Count: Integer): string;
 var
@@ -497,41 +497,67 @@ end;
 
 // Retrieve a array, that contain main information of available languages
 function TLang.GetAvailableLanguages: TLangEntries;
-var
-  SR: TSearchRec;
-  LangINI: TMemIniFile;
-  LangINIFileName, LangCode, LangLocalName, LangIntlName: string;
-  Index: Integer;
-begin
-  if FindFirst(GetLangFileName('*'), 0, SR) <> 0 then
-    Exit;
 
-  try
-    repeat
-      SR.Name := LangPath + SR.Name;
-      LangINIFileName := ExtractFileName(SR.Name);
-
-      LangINI := TMemIniFile.Create(SR.Name, TEncoding.UTF8);
-      try
-        LangCode := LangINI.ReadString(InfoSection, 'LangCode', '');
-        LangLocalName := LangINI.ReadString(InfoSection, 'LocalName', '');
-        LangIntlName := LangINI.ReadString(InfoSection, 'InternationalName', '');
-      finally
-        LangINI.Free;
-      end;
-
-      {**
-       * Finally we can add one language to our result array
-       *}
-      Index := Length(Result);
-      SetLength(Result, Index + 1);
-      Result[Index].Code := LangCode;
-      Result[Index].InternationalName := LangIntlName;
-      Result[Index].LocalName := LangLocalName;
-    until FindNext(SR) <> 0;
-  finally
-    FindClose(SR);
+  procedure AddLangEntry(LangCode, LangLocalName, LangIntlName: string);
+  var
+    Index: Integer;
+  begin
+    Index := Length(Result);
+    SetLength(Result, Index + 1);
+    Result[Index].Code := LangCode;
+    Result[Index].InternationalName := LangIntlName;
+    Result[Index].LocalName := LangLocalName;
   end;
+
+  procedure CheckFromFiles;
+  var
+    SR: TSearchRec;
+    LangINI: TMemIniFile;
+    LangINIFileName, LangCode, LangLocalName, LangIntlName: string;
+  begin
+    if FindFirst(GetLangFileName('*'), 0, SR) <> 0 then
+      Exit;
+
+    try
+      repeat
+        SR.Name := LangPath + SR.Name;
+        LangINIFileName := ExtractFileName(SR.Name);
+
+        LangINI := TMemIniFile.Create(SR.Name, TEncoding.UTF8);
+        try
+          LangCode := LangINI.ReadString(InfoSection, 'LangCode', '');
+          LangLocalName := LangINI.ReadString(InfoSection, 'LocalName', '');
+          LangIntlName := LangINI.ReadString(InfoSection, 'InternationalName', '');
+        finally
+          LangINI.Free;
+        end;
+
+        AddLangEntry(LangCode, LangLocalName, LangIntlName);
+      until FindNext(SR) <> 0;
+    finally
+      FindClose(SR);
+    end;
+  end;
+
+  // Fast hack...extend as you need
+  procedure CheckFromVirtual;
+  const
+    LangCodes: array[0..2] of string =      ('en',      'de',      'ru');
+    LangLocalNames: array[0..2] of string = ('English', 'Deutsch', '–†—É—Å—Å–∫–∏–π');
+    LangIntlNames: array[0..2] of string =  ('English', 'German',  'Russian');
+  var
+    cc: Integer;
+  begin
+    for cc := 0 to Length(LangCodes) - 1 do
+      if FOnLangAvailable(LangCodes[cc]) then
+        AddLangEntry(LangCodes[cc], LangLocalNames[cc], LangIntlNames[cc]);
+  end;
+
+begin
+  if LangSource = lsFile then
+    CheckFromFiles
+  else if (LangSource = lsVirtual) and Assigned(FOnLangAvailable) then
+    CheckFromVirtual;
 end;
 
 function TLang.GetConst(Name: string): string;
@@ -679,14 +705,14 @@ var
         end;
       end;
       {**
-       * Schlussendlich wird der pr‰parierte String wieder zugewiesen
+       * Schlussendlich wird der pr√§parierte String wieder zugewiesen
        *}
       List[cc] := LangItem;
     end;
   end;
 
   {**
-   * R‰umt eine Liste auf, indem es alle leeren Strings entfernt
+   * R√§umt eine Liste auf, indem es alle leeren Strings entfernt
    *}
   procedure CleanList(List: TStringList);
   var
@@ -724,7 +750,7 @@ begin
   else
     Exit;
 
-  // Regul‰ren Ausdruck f¸r das Ersetzen von Sprachvariablen initiieren
+  // Regul√§ren Ausdruck f√ºr das Ersetzen von Sprachvariablen initiieren
   LangVarPCRE := TRegEx.Create('\$([\w\d\-]+)\$', [roIgnoreCase, roCompiled]);
   try
     FLangInternationalName := INI.ReadString(InfoSection, 'InternationalName', '');
@@ -774,7 +800,7 @@ end;
 {**
  * Liefert die Referenz, vom Objekt welches die ITranslate-Schnittstelle implementiert, falls...
  *
- * - sie tats‰chlich die Schnittstelle implementiert
+ * - sie tats√§chlich die Schnittstelle implementiert
  * - falls ITranslate.IsReadyFroTranslate TRUE liefert
  *
  * gleichzeitig setzt es das OnReadyForTranslate-Event, wenn ITranslate.IsReadyFroTranslate
@@ -800,9 +826,9 @@ var
   Current: TComponent;
 
   {**
-   * ‹bersetzt die aktuelle Komponente in Current nach einem Schema
+   * √úbersetzt die aktuelle Komponente in Current nach einem Schema
    *
-   * Ein Schema kann mehrere Eigenschaften in einem String f¸r die ‹bersetzung definieren.
+   * Ein Schema kann mehrere Eigenschaften in einem String f√ºr die √úbersetzung definieren.
    *
    * Beispiel: '"Caption=13..." "Hint=14"'
    *}
