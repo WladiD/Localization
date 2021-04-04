@@ -16,6 +16,8 @@ uses
   Generics.Collections;
 
 type
+  TDeepScanner = class;
+
   // Translate interface, which can be implemented on any TComponent descendant and will be
   // automatically called by TLang.Translate
   ITranslate = interface
@@ -75,6 +77,7 @@ type
     FInitialized: Boolean;
     FNumberPCRE: TRegEx;
     FLangPath: string;
+    FDeepScanner: TDeepScanner;
 
     procedure SetLangCode(NewLangCode: string);
     function GetString(Index: Integer): string;
@@ -421,6 +424,7 @@ begin
   FStrings.Free;
   FMessages.Free;
   FConsts.Free;
+  FreeAndNil(FDeepScanner);
 
   inherited Destroy;
 end;
@@ -805,19 +809,10 @@ begin
     TranslateObject.Translate;
 end;
 
-{**
- * Übersetzt rekursiv alle Unterobjekte von ComponentHolder
- *}
+// Recursively translates all subobjects of ComponentHolder
 procedure TLang.Translate(ComponentHolder: TComponent);
-var
-  DeepScanner: TDeepScanner;
 begin
-  {**
-   * Das hier bedeutet, dass das Objekt noch nicht bereit für die Übersetzung ist, wenn das
-   * der Fall ist...so wird die Prozedur verlassen...doch in GetTranslateObject() wird der
-   * Event-Handler für OnReadyForTranslate gesetzt, sodass per Konzeption diese Methode wieder
-   * aufgerufen wird, sobald es für die Übersetzung bereit ist.
-   *}
+  // This condition checks, whether the ComponentHolder is currently ready for translating.
   if Supports(ComponentHolder, ITranslate) and (GetTranslateObject(ComponentHolder) = nil) then
     Exit;
 
@@ -826,14 +821,12 @@ begin
 
   TranslateComponent(ComponentHolder);
 
-  if Assigned(DeepScannerClass) then
+  if Assigned(FDeepScanner) then
+    FDeepScanner.DeepScan(ComponentHolder)
+  else if Assigned(DeepScannerClass) then
   begin
-    DeepScanner := DeepScannerClass.Create(TranslateComponent);
-    try
-      DeepScanner.DeepScan(ComponentHolder);
-    finally
-      DeepScanner.Free;
-    end;
+    FDeepScanner := DeepScannerClass.Create(TranslateComponent);
+    FDeepScanner.DeepScan(ComponentHolder);
   end;
 end;
 
@@ -897,14 +890,12 @@ begin
   end;
 end;
 
-{**
- * Übersetzt die gesamte Anwendung
- *
- * Erreicht werden sämtliche Komponenten, die über den Owner-Mechanismus von TComponent mit der
- * Application (egal auf welcher Ebene) verbunden sind.
- *
- * Diese Methode wird auch beim setzen der LangCode-Eigenschaft aufgerufen.
- *}
+// Translates the whole application
+//
+// All components which are connected by the owner mechanism of TComponent with the
+// RootComponent (Application) will be reached.
+//
+// It get called, when the LangCode property changes.
 procedure TLang.TranslateApplication;
 begin
   Translate(RootComponent);
