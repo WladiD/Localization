@@ -18,6 +18,7 @@ uses
   FMX.StdCtrls,
   FMX.ListBox,
   FMX.Layouts,
+  FMX.Platform,
 
   Localization;
 
@@ -27,8 +28,10 @@ type
     Layout1: TLayout;
     Label2: TLabel;
     LangCombo: TComboBox;
+    ShowMessageButton: TButton;
     procedure FormCreate(Sender: TObject);
     procedure LangComboChange(Sender: TObject);
+    procedure ShowMessageButtonClick(Sender: TObject);
 
   // ITranslate-Interface
   private
@@ -88,6 +91,17 @@ end;
 procedure TMainForm.LangComboChange(Sender: TObject);
 begin
   Lang.LangCode := Lang.GetAvailableLanguages[LangCombo.ItemIndex].Code;
+end;
+
+procedure TMainForm.ShowMessageButtonClick(Sender: TObject);
+var
+  DialogService: IFMXDialogServiceAsync;
+begin
+  if TPlatformServices.Current.SupportsPlatformService(IFMXDialogServiceAsync, DialogService) then
+    DialogService.MessageDialogAsync(Lang.Strings[100000],
+        TMsgDlgType.mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbYes, 0, nil);
+
+//  ShowMessage(Lang.Strings[100000]);
 end;
 
 end.

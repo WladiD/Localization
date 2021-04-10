@@ -64,4 +64,16 @@ object MainForm: TMainForm
       OnChange = LangComboChange
     end
   end
+  object ShowMessageButton: TButton
+    Align = Center
+    HelpContext = 1
+    HelpKeyword = 'Text=14'
+    HelpType = htKeyword
+    Size.Width = 451.000000000000000000
+    Size.Height = 66.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    Text = 'Show message box'
+    OnClick = ShowMessageButtonClick
+  end
 end
